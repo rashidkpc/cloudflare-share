@@ -4,16 +4,16 @@ Source: <https://github.com/rashidkpc/cloudflare-share>
 
 > **Full disclosure: this whole thing was vibed into existence.** An AI agent
 > wrote it, nobody audited every line, and no, that definitely won't come back to
-> bite anyone. It works. Treat it like a clever friend's side project, not
-> something your compliance department signed off on.
+> bite anyone. It works. Think of it as a pretty dumb friend's side project — and
+> honestly, you're probably just as dumb for deploying it. No offense. It takes
+> one to know one.
 >
 > **The genuinely best way to deploy it is to make an agent do it.** Hand this
 > repo to a coding agent and tell it to follow the install steps. It will happily
 > create the D1 database and R2 bucket, paste in the ids, run the migrations,
 > deploy, and wire up Access — fixing its own mistakes along the way — while you
-> take the credit. Doing it by hand also works; the walkthrough is down in
-> [Install on Cloudflare](#install-on-cloudflare), if you're into that sort of
-> thing.
+> take the credit. And don't bother clearing this with your compliance
+> department. You don't have one. Why would you?
 
 Temporary image and file hosting on a single Cloudflare Worker. Upload photos or
 arbitrary files, give the share a title, get a link, paste it into IRC. The share
