@@ -4,7 +4,7 @@ Source: <https://github.com/rashidkpc/cloudflare-share>
 
 > **This project was vibe-coded.** An AI agent wrote it and nobody audited it.
 > Why even use this?
-> Why note vibe up your own trash?
+> Why not vibe up your own trash?
 > Welcome to the new reality.
 >
 > **The easiest way to deploy it is with an agent.** Give a coding agent the repo
