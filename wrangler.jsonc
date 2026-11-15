@@ -18,7 +18,8 @@
     {
       "binding": "DB",
       "database_name": "img",
-      "database_id": "67de7798-fb32-4ed3-9da1-e4e0bf94eb54"
+      // Replace with the id printed by: npx wrangler d1 create img
+      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID"
     }
   ],
 

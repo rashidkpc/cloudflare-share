@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Temporary image and file hosting on a single Cloudflare Worker",
+  "license": "GPL-3.0-or-later",
   "homepage": "https://github.com/rashidkpc/cloudflare-share",
   "repository": {
     "type": "git",

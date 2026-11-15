@@ -54,7 +54,7 @@ npx wrangler r2 bucket create img-photos
 ```
 
 `d1 create` prints a `database_id`. Open `wrangler.jsonc` and replace the
-existing `database_id` with yours:
+`REPLACE_WITH_YOUR_D1_DATABASE_ID` placeholder with yours:
 
 ```jsonc
 "d1_databases": [
@@ -295,3 +295,14 @@ npm run db:migrate:remote
   here carries GPS or camera tags. There is no original file to fetch.
 - `Content-Disposition: inline` plus the filename in the path means IRC clients
   and unfurlers see a normal image URL.
+
+## License
+
+The Worker code is free software under the GNU General Public License,
+version 3 or (at your option) any later version. Copyright (C) 2026
+rashidkpc. The full text is in [`LICENSE`](LICENSE).
+
+The bundled Space Grotesk font (`src/ui/fonts/space-grotesk-700.woff2`) is
+**not** covered by the GPL. It is licensed under the SIL Open Font License,
+version 1.1; its copyright notice and license text are in
+[`src/ui/fonts/OFL.txt`](src/ui/fonts/OFL.txt).
