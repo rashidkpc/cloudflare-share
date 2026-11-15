@@ -3,12 +3,13 @@
 Source: <https://github.com/rashidkpc/cloudflare-share>
 
 > **This project was vibe-coded.** An AI agent wrote it and nobody audited it.
-> Review the code before trusting it with anything.
+> Review the code before trusting it with anything. And honestly, why even use this?
+> Why note vibe up your own trash?
 >
 > **The easiest way to deploy it is with an agent.** Give a coding agent the repo
 > and tell it to follow the install steps: create the D1 database and R2 bucket,
 > fill in the ids, run the migrations, deploy, and configure Access. The manual
-> steps below work too.
+> steps below work too. Probably. I don't know, I didn't read them.
 
 Temporary image and file hosting on a single Cloudflare Worker.
 
