@@ -27,8 +27,15 @@
     "crons": ["*/10 * * * *"]
   },
 
+  "ratelimits": [
+    // Burst control. Limits apply per Cloudflare location and are approximate.
+    { "name": "READ_PER_IP", "namespace_id": "1001", "simple": { "limit": 300, "period": 60 } },
+    { "name": "READ_GLOBAL", "namespace_id": "1002", "simple": { "limit": 3000, "period": 60 } }
+  ],
+
   "vars": {
     "DEFAULT_TTL_SECONDS": "86400",
+    "MAX_SHARE_REQUESTS": "1000",
     "TTL_PRESETS": "[{\"label\":\"1 hour\",\"seconds\":3600},{\"label\":\"6 hours\",\"seconds\":21600},{\"label\":\"24 hours\",\"seconds\":86400},{\"label\":\"3 days\",\"seconds\":259200},{\"label\":\"7 days\",\"seconds\":604800},{\"label\":\"14 days\",\"seconds\":1209600},{\"label\":\"30 days\",\"seconds\":2592000},{\"label\":\"90 days\",\"seconds\":7776000},{\"label\":\"365 days\",\"seconds\":31536000}]",
     "MAX_UPLOAD_BYTES": "20971520",
     "MAX_IMAGES": "20",

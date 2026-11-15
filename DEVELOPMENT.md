@@ -70,6 +70,28 @@ the account that uploaded it, and only while it exists. The `edit_hash` and
 `edit_expires_at` columns are leftovers from the cookie era and are no longer
 read or written.
 
+## Request budget and rate limits
+
+Every public `GET`/`HEAD` to `/i/*`, `/img/*`, `/t/*`, `/raw/*`, and `/f/*`
+charges one request to the share (`posts.hits`). Once a share passes
+`MAX_SHARE_REQUESTS` (1,000 by default), its `expires_at` is set to now in the
+same atomic `UPDATE`, so the normal expiry path returns `410` and purges it.
+
+This is a lifetime budget, not a rate: distributed traffic cannot avoid it, and
+one share can never cause more than `MAX_SHARE_REQUESTS` R2 reads or D1 writes.
+Concurrent requests at the boundary are serialized by D1, so the cap holds.
+
+Burst control is separate, via two rate limiting bindings in `wrangler.jsonc`:
+
+| Binding | Key | Limit |
+| --- | --- | --- |
+| `READ_PER_IP` | `cf-connecting-ip` | 300/min |
+| `READ_GLOBAL` | `global` | 3,000/min |
+
+Both are per Cloudflare location and approximate, and a `429` still counts as a
+Worker invocation. The request budget is what bounds total cost; the limiter
+only stops one client from burning a share's budget instantly.
+
 ## Expiry
 
 Three independent layers, so a missed cron can never serve a dead image:
@@ -93,6 +115,7 @@ Variables live in `wrangler.jsonc`:
 | Var | Default | Meaning |
 | --- | --- | --- |
 | `DEFAULT_TTL_SECONDS` | `86400` | preselected lifetime |
+| `MAX_SHARE_REQUESTS` | `1000` | public requests a share may serve before it expires |
 | `TTL_PRESETS` | 1h, 6h, 24h, 3d, 7d, 14d, 30d, 90d, 365d | JSON `[{label, seconds}]`; requests must match a preset |
 | `MAX_UPLOAD_BYTES` | `20971520` | 20 MB per image (also the Images input limit) |
 | `MAX_IMAGES` | `20` | maximum assets (images + files) per share; `MAX_ASSETS` also works |

@@ -65,6 +65,37 @@ export async function getPost(db: Db, id: string): Promise<PostRow | null> {
   return row ?? null;
 }
 
+export interface HitState {
+  hits: number;
+  expires_at: number;
+}
+
+/**
+ * Charge one request to a share. Returns null when the share is missing or
+ * already expired, including when a concurrent request spent the last request.
+ *
+ * The budget is spent by expiring the share in place, so the normal purge path
+ * (serve-time delete plus the cron sweep) does the cleanup.
+ */
+export async function registerHit(
+  db: Db,
+  postId: string,
+  now: number,
+  cap: number,
+): Promise<HitState | null> {
+  const row = await db
+    .prepare(
+      `UPDATE posts
+          SET hits = hits + 1,
+              expires_at = CASE WHEN hits + 1 > ?2 THEN ?3 ELSE expires_at END
+        WHERE id = ?1 AND expires_at > ?3
+    RETURNING hits, expires_at`,
+    )
+    .bind(postId, cap, now)
+    .first<HitState>();
+  return row ?? null;
+}
+
 export async function getPostAssets(db: Db, postId: string): Promise<AssetRow[]> {
   const { results } = await db
     .prepare(`SELECT ${ASSET_COLUMNS} FROM assets WHERE post_id = ?1 ORDER BY position ASC`)

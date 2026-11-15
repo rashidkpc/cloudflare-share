@@ -1,10 +1,12 @@
 import { attachmentHeader, escapeHtml, formatBytes, html, text } from "../lib/http";
+import { shareRequestCap } from "../lib/limits";
 import {
   deletePost,
   getAssetWithPost,
   getFirstImage,
   getPost,
   getPostAssets,
+  registerHit,
   type AssetRow,
 } from "../lib/posts";
 import { requireOwnedPost } from "./guard";
@@ -117,7 +119,8 @@ export async function handleViewer(
   if (!post) return html(missingPage(env.SITE_NAME), 404);
 
   const now = Date.now();
-  if (post.expires_at <= now) {
+  const hit = await registerHit(env.DB, post.id, now, shareRequestCap(env.MAX_SHARE_REQUESTS));
+  if (!hit || hit.expires_at <= now) {
     ctx.waitUntil(deletePost(env, post.id).catch(() => undefined));
     return html(expiredPage(env.SITE_NAME), 410);
   }
@@ -179,6 +182,7 @@ export async function handleImage(
 
   let asset = found?.asset ?? null;
   let expiresAt = found?.expires_at ?? null;
+  let postId = found?.asset.post_id ?? null;
 
   // Legacy links from the one-image-per-post era: /img/<post-id>/<filename>.
   if (!asset) {
@@ -186,14 +190,22 @@ export async function handleImage(
     if (post) {
       asset = await getFirstImage(env.DB, post.id);
       expiresAt = post.expires_at;
+      postId = post.id;
     }
   }
 
-  if (!asset || expiresAt === null) return text("Not found", 404);
+  if (!asset || expiresAt === null || postId === null) return text("Not found", 404);
 
-  const remainingMs = expiresAt - Date.now();
+  const now = Date.now();
+  const remainingMs = expiresAt - now;
   if (remainingMs <= 0) {
     ctx.waitUntil(deletePost(env, asset.post_id).catch(() => undefined));
+    return text("Gone — this image has expired", 410);
+  }
+
+  const hit = await registerHit(env.DB, postId, now, shareRequestCap(env.MAX_SHARE_REQUESTS));
+  if (!hit || hit.expires_at <= now) {
+    ctx.waitUntil(deletePost(env, postId).catch(() => undefined));
     return text("Gone — this image has expired", 410);
   }
 
@@ -269,8 +281,20 @@ export async function handleFile(
   const found = await getAssetWithPost(env.DB, id);
   if (!found) return text("Not found", 404);
 
-  const remainingMs = found.expires_at - Date.now();
+  const now = Date.now();
+  const remainingMs = found.expires_at - now;
   if (remainingMs <= 0) {
+    ctx.waitUntil(deletePost(env, found.asset.post_id).catch(() => undefined));
+    return text("Gone — this file has expired", 410);
+  }
+
+  const hit = await registerHit(
+    env.DB,
+    found.asset.post_id,
+    now,
+    shareRequestCap(env.MAX_SHARE_REQUESTS),
+  );
+  if (!hit || hit.expires_at <= now) {
     ctx.waitUntil(deletePost(env, found.asset.post_id).catch(() => undefined));
     return text("Gone — this file has expired", 410);
   }

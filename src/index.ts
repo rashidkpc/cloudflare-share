@@ -1,5 +1,6 @@
 import { accessIdentity } from "./lib/auth";
 import { escapeHtml, html, text } from "./lib/http";
+import { isLimitedRead } from "./lib/limits";
 import { sweepExpired } from "./lib/posts";
 import { loadPresets, resolveTtl } from "./lib/ttl";
 import {
@@ -162,6 +163,19 @@ export default {
               "cache-control": "public, max-age=31536000, immutable",
             },
           });
+        }
+      }
+
+      // Burst control on the public read paths. Limits are per location and
+      // approximate; the per-share request budget is the hard cost bound.
+      if ((method === "GET" || method === "HEAD") && isLimitedRead(pathname)) {
+        const ip = request.headers.get("cf-connecting-ip") ?? "unknown";
+        const [byIp, global] = await Promise.all([
+          env.READ_PER_IP.limit({ key: ip }),
+          env.READ_GLOBAL.limit({ key: "global" }),
+        ]);
+        if (!byIp.success || !global.success) {
+          return text("Too many requests", 429, { "retry-after": "60" });
         }
       }
 
