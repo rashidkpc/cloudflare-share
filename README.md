@@ -1,4 +1,4 @@
-# share
+# Cloudflare Share
 
 Source: <https://github.com/rashidkpc/cloudflare-share>
 
