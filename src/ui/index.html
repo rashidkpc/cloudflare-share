@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>__SITE_NAME__ — share</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css?v=__VERSION__">
+</head>
+<body data-config="__CONFIG__">
+<main class="wrap">
+  <p id="open-warning" class="banner" hidden>
+    <strong>Uploads are open.</strong> Anyone with this URL can post. Add the
+    Cloudflare Access app for <code>/upload</code> and <code>/api/upload</code>, then set
+    <code>AUTH_MODE</code> to <code>access</code> and redeploy.
+  </p>
+
+  <label class="field title-field">
+    <span class="field-label">Title</span>
+    <input id="title" class="text-input" type="text" maxlength="120" autocomplete="off"
+           placeholder="Optional — shown at the top of the share">
+  </label>
+
+  <div class="compose">
+    <div class="main-col">
+      <section id="drop" class="drop" tabindex="0" role="button" aria-label="Choose files to upload">
+        <input id="file" type="file" multiple hidden>
+        <p class="drop-title">Drop files here</p>
+        <p class="drop-sub">or click to browse · uploading starts immediately · up to <span id="max-images">20</span></p>
+      </section>
+    </div>
+
+    <aside class="side-col">
+      <div id="ttl-block" class="side-block">
+        <span class="field-label">Expires in</span>
+        <div id="presets" class="presets presets-grid"></div>
+      </div>
+
+      <div id="progress" class="upload-progress" hidden>
+        <div class="upload-track"><div id="progress-fill" class="upload-fill"></div></div>
+        <span id="progress-label" class="upload-label"></span>
+      </div>
+    </aside>
+  </div>
+
+  <p id="notice" class="notice" hidden role="alert"></p>
+</main>
+<script src="/app.js?v=__VERSION__" type="module"></script>
+</body>
+</html>

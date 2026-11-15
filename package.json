@@ -1,0 +1,33 @@
+{
+  "name": "share",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Temporary image and file hosting on a single Cloudflare Worker",
+  "homepage": "https://github.com/rashidkpc/cloudflare-share",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rashidkpc/cloudflare-share.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rashidkpc/cloudflare-share/issues"
+  },
+  "type": "module",
+  "scripts": {
+    "build:ui": "node scripts/gen-ui.mjs",
+    "predev": "npm run build:ui",
+    "dev": "wrangler dev",
+    "predeploy": "npm run build:ui",
+    "deploy": "wrangler deploy",
+    "pretypecheck": "npm run build:ui",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:migrate:local": "wrangler d1 migrations apply img --local",
+    "db:migrate:remote": "wrangler d1 migrations apply img --remote"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20261113.0",
+    "typescript": "^5.9.3",
+    "vitest": "^5.1.0",
+    "wrangler": "^4.162.0"
+  }
+}

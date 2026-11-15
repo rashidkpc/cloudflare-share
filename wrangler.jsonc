@@ -1,0 +1,42 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "share",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+
+  // Reachable at https://img.<account-subdomain>.workers.dev
+  "workers_dev": true,
+  "preview_urls": false,
+
+  "r2_buckets": [
+    { "binding": "BLOBS", "bucket_name": "img-photos" }
+  ],
+
+  "images": { "binding": "IMAGES" },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "img",
+      "database_id": "67de7798-fb32-4ed3-9da1-e4e0bf94eb54"
+    }
+  ],
+
+  "triggers": {
+    "crons": ["*/10 * * * *"]
+  },
+
+  "vars": {
+    // "access" -> gate uploads on Cloudflare Access (ctx.access)
+    // "basic"  -> gate uploads on HTTP Basic, password in UPLOAD_PASSWORD
+    "AUTH_MODE": "access",
+    "DEFAULT_TTL_SECONDS": "86400",
+    "TTL_PRESETS": "[{\"label\":\"1 hour\",\"seconds\":3600},{\"label\":\"6 hours\",\"seconds\":21600},{\"label\":\"24 hours\",\"seconds\":86400},{\"label\":\"3 days\",\"seconds\":259200},{\"label\":\"7 days\",\"seconds\":604800},{\"label\":\"14 days\",\"seconds\":1209600},{\"label\":\"30 days\",\"seconds\":2592000},{\"label\":\"90 days\",\"seconds\":7776000},{\"label\":\"365 days\",\"seconds\":31536000}]",
+    "MAX_UPLOAD_BYTES": "20971520",
+    "MAX_IMAGES": "20",
+    "MAX_TOTAL_BYTES": "52428800",
+    "SITE_NAME": "share"
+  },
+
+  "observability": { "enabled": true }
+}

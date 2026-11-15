@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build, test and deploy output
+dist/
+coverage/
+*.tsbuildinfo
+*.log
+
+# Wrangler local state: local D1 database, R2 uploads, caches.
+# This is not just a cache — it can contain real uploaded files.
+.wrangler/
+
+# Secrets — never commit these
+.dev.vars
+.dev.vars.*
+.env
+.env.*
+!.dev.vars.example
+
+# Editor and OS noise
+.DS_Store
+.idea/
+.vscode/
