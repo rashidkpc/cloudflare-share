@@ -52,46 +52,45 @@ npm run db:migrate:remote
 npm run deploy
 ```
 
-Wrangler prints `https://share.<account-subdomain>.workers.dev`. Uploads return
-`403` until step 4 is done — that is intentional. To test before Access exists,
-set `"AUTH_MODE": "open"` in `wrangler.jsonc`, deploy, then switch it back.
+Wrangler prints `https://share.<account-subdomain>.workers.dev`. Uploads and
+edits return `403` until Access covers the paths in step 4 — that is intentional.
 
-**4. Lock down uploads with Access**
+**4. Gate the app with Access**
 
-Only two paths create shares:
+Four paths need an Access application. Everything else stays public.
 
 - `/upload`
 - `/api/upload`
+- `/m/*`
+- `/api/posts/*`
 
 In **Zero Trust → Access controls → Applications → Add an application →
 Self-hosted**:
 
-1. Name it `share: uploader`.
-2. Add two public hostnames on your Worker host: path `upload`, and path
-   `api/upload` (no leading slash).
+1. Name it `share`.
+2. Add four public hostnames on your Worker host, with paths `upload`,
+   `api/upload`, `m/*`, and `api/posts/*` (no leading slash).
 3. Add an `Allow` policy for your email, or your email domain.
 4. Save. No redeploy needed.
 
 Do not add a blank or `/` path, and do not enable "Protect this Worker behind
-Access" — either one hides `/img/*` and breaks every shared link. Do not protect
-`/api/posts/*` or `/m/*` either: edits use an edit cookie, not an Access session,
-so a login wall there breaks the manage page.
+Access" — either one covers `/img/*` and breaks every shared link.
+
+Uploads accept any identity the Access policy allows. Editing and deleting
+additionally require that identity to own the share, so being logged in as
+someone else is not enough.
 
 Check it:
 
 ```sh
-curl -i https://<host>/upload    # redirects to the Access login
-curl -i https://<host>/          # 200, "Nothing to see here"
-curl -i https://<host>/i/<id>    # 200, no login
+curl -i https://<host>/upload        # redirects to the Access login
+curl -i https://<host>/m/<id>        # also behind Access
+curl -i https://<host>/              # 200, "Nothing to see here"
+curl -i https://<host>/i/<id>        # 200, no login
 ```
 
 If Access refuses a `workers.dev` hostname, add a custom domain and use that
-hostname for both the Access application and the Worker, or switch to Basic auth:
-
-```sh
-npx wrangler secret put UPLOAD_PASSWORD
-# set "AUTH_MODE": "basic" in wrangler.jsonc, then npm run deploy
-```
+hostname for both the Access application and the Worker.
 
 Local setup, commands, all routes, and implementation notes are in
 [DEVELOPMENT.md](DEVELOPMENT.md).

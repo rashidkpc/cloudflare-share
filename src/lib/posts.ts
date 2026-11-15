@@ -5,8 +5,6 @@ export interface PostRow {
   created_at: number;
   expires_at: number;
   ttl_seconds: number;
-  edit_hash: string | null;
-  edit_expires_at: number | null;
 }
 
 export type AssetKind = "image" | "file";
@@ -33,8 +31,7 @@ export interface AssetRow {
 export type Db = Pick<D1Database, "prepare" | "batch">;
 export type Storage = { DB: Db; BLOBS: Pick<R2Bucket, "delete"> };
 
-const POST_COLUMNS =
-  "id, owner_email, title, created_at, expires_at, ttl_seconds, edit_hash, edit_expires_at";
+const POST_COLUMNS = "id, owner_email, title, created_at, expires_at, ttl_seconds";
 const ASSET_COLUMNS =
   "id, post_id, position, kind, mime, size, width, height, filename, r2_key, display_key, display_size, display_mime, thumb_key, thumb_size, thumb_mime";
 

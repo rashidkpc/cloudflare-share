@@ -1,4 +1,4 @@
-import { authenticate } from "./lib/auth";
+import { accessIdentity } from "./lib/auth";
 import { escapeHtml, html, text } from "./lib/http";
 import { sweepExpired } from "./lib/posts";
 import { loadPresets, resolveTtl } from "./lib/ttl";
@@ -33,27 +33,9 @@ function fontBytes(): Uint8Array {
 }
 
 function needsAuth(pathname: string): boolean {
-  // Creating a share is the only Access-gated write. Edits are authorised by
-  // the per-share cookie so they work outside an Access session.
+  // Access protects /upload and /api/upload at the edge; this is the fail-closed
+  // check for when a path is missing from the Access application.
   return pathname === "/api/upload";
-}
-
-/** Access identity for this request, if Access happens to front the path. */
-async function accessEmail(ctx: ExecutionContext): Promise<string | null> {
-  const access = (
-    ctx as unknown as {
-      access?: { getIdentity?: () => Promise<{ email?: string } | null> };
-    }
-  ).access;
-
-  if (!access?.getIdentity) return null;
-
-  try {
-    const identity = await access.getIdentity();
-    return identity?.email ?? null;
-  } catch {
-    return null;
-  }
 }
 
 function renderUploadPage(env: Env): Response {
@@ -69,7 +51,6 @@ function renderUploadPage(env: Env): Response {
     maxAssets: Number(env.MAX_ASSETS ?? env.MAX_IMAGES) || 20,
     maxTotalBytes: Number(env.MAX_TOTAL_BYTES) || 50 * 1024 * 1024,
     siteName: env.SITE_NAME,
-    authMode: env.AUTH_MODE,
   };
 
   const page = indexHtml
@@ -196,11 +177,8 @@ export default {
         if (method !== "GET" && method !== "HEAD") {
           return text("Method not allowed", 405, { allow: "GET, HEAD" });
         }
-        if (env.AUTH_MODE === "basic") {
-          const auth = await authenticate(request, env, ctx);
-          if (!auth.ok) {
-            return text(auth.message, auth.status, auth.headers);
-          }
+        if (!(await accessIdentity(ctx))) {
+          return text("Cloudflare Access is required", 403);
         }
         return renderUploadPage(env);
       }
@@ -209,24 +187,22 @@ export default {
         if (method !== "POST") {
           return text("Method not allowed", 405, { allow: "POST" });
         }
-        const auth = await authenticate(request, env, ctx);
-        if (!auth.ok) {
-          return text(auth.message, auth.status, auth.headers);
-        }
-        return handleUpload(request, env, ctx, auth.uploader);
+        const email = await accessIdentity(ctx);
+        if (!email) return text("Cloudflare Access is required", 403);
+        return handleUpload(request, env, ctx, email);
       }
 
-      // Edits: authenticated by the per-share cookie (or an Access identity).
+      // Edits: the Access identity must also own the share.
       if (pathname.startsWith("/api/posts/")) {
         const rest = pathname.slice("/api/posts/".length);
         const [postId, action, assetId] = rest.split("/");
         if (!postId) return text("Not found", 404);
 
-        const email = await accessEmail(ctx);
+        const email = await accessIdentity(ctx);
 
         if (!action) {
           if (method === "DELETE") {
-            return handleDelete(env, request, postId, email);
+            return handleDelete(env, postId, email);
           }
           if (method === "PATCH") {
             return handleUpdateTitle(request, env, postId, email);
@@ -263,7 +239,8 @@ export default {
         }
         const id = pathname.slice(3);
         if (!id) return notFoundPage(env);
-        return handleManage(request, env, ctx, id);
+        const email = await accessIdentity(ctx);
+        return handleManage(request, env, id, email);
       }
 
       if (pathname.startsWith("/i/")) {

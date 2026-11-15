@@ -221,8 +221,3 @@ document.addEventListener("paste", (event) => {
 });
 
 buildPresets();
-
-if (config.authMode === "open") {
-  const warning = document.getElementById("open-warning");
-  if (warning) warning.hidden = false;
-}

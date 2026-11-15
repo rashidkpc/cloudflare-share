@@ -1,5 +1,0 @@
-# Copy to .dev.vars for local development.
-# Local dev uses Basic auth because ctx.access is not available outside Access.
-AUTH_MODE=basic
-UPLOAD_PASSWORD=local-dev-password
-OWNER_EMAIL=you@example.com

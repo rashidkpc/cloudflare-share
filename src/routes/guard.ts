@@ -1,18 +1,16 @@
-import { verifyEditToken } from "../lib/edit";
 import { text } from "../lib/http";
 import { deletePost, getPost, type PostRow } from "../lib/posts";
 
 /**
- * Load a share the caller may edit, or the response to send back.
+ * Load a share owned by the Access identity, or the response to send back.
  *
- * Edit rights come from the per-share cookie set on the uploading browser, or
- * from a Cloudflare Access identity that matches the share owner.
+ * Ownership is the only edit authorisation: there is no edit cookie and no
+ * password. `email` comes from `accessIdentity()`, so it is already lowercased.
  */
-export async function requireEditablePost(
+export async function requireOwnedPost(
   env: Env,
-  request: Request,
   postId: string,
-  accessEmail: string | null,
+  email: string | null,
 ): Promise<PostRow | Response> {
   const post = await getPost(env.DB, postId);
   if (!post) return text("Not found", 404);
@@ -22,8 +20,9 @@ export async function requireEditablePost(
     return text("Gone — this share has expired", 410);
   }
 
-  if (accessEmail && post.owner_email === accessEmail) return post;
-  if (await verifyEditToken(request, post)) return post;
+  if (!email || post.owner_email.toLowerCase() !== email) {
+    return text("This account does not own this share", 403);
+  }
 
-  return text("This browser does not have edit access to this share", 403);
+  return post;
 }

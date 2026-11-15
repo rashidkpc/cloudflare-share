@@ -2,10 +2,8 @@ import { fail, json } from "../lib/http";
 import { randomId } from "../lib/ids";
 import { imageDimensions, sanitizeFilename, sniffImage } from "../lib/images";
 import { loadPresets, resolveTtl } from "../lib/ttl";
-import type { Uploader } from "../lib/auth";
 import { getPostAssets, type AssetRow } from "../lib/posts";
-import { editCookie, hashToken, randomToken } from "../lib/edit";
-import { requireEditablePost } from "./guard";
+import { requireOwnedPost } from "./guard";
 
 const DISPLAY_WIDTH = 2048;
 const DISPLAY_QUALITY = 82;
@@ -417,7 +415,7 @@ export async function handleUpload(
   request: Request,
   env: Env,
   ctx: ExecutionContext,
-  uploader: Uploader,
+  email: string,
 ): Promise<Response> {
   const maxBytes = limit(env.MAX_UPLOAD_BYTES, 20 * 1024 * 1024);
   const maxTotal = limit(env.MAX_TOTAL_BYTES, 50 * 1024 * 1024);
@@ -446,26 +444,15 @@ export async function handleUpload(
     const origin = new URL(request.url).origin;
     const postId = randomId(10);
     const records = buildRecords(prepared, postId, 0);
-    const editToken = randomToken();
-    const editHash = await hashToken(editToken);
 
     await writeObjects(env, records, expiresAt);
 
     const statements: D1PreparedStatement[] = [
       env.DB.prepare(
         `INSERT INTO posts
-           (id, owner_email, title, created_at, expires_at, ttl_seconds, edit_hash, edit_expires_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`,
-      ).bind(
-        postId,
-        uploader.email,
-        title,
-        now,
-        expiresAt,
-        choice.ttl.seconds,
-        editHash,
-        expiresAt,
-      ),
+           (id, owner_email, title, created_at, expires_at, ttl_seconds)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
+      ).bind(postId, email, title, now, expiresAt, choice.ttl.seconds),
       ...assetStatements(env, postId, records),
     ];
 
@@ -492,17 +479,7 @@ export async function handleUpload(
         count: records.length,
         assets: records.map((record) => assetJson(origin, record)),
       },
-      {
-        status: 201,
-        headers: {
-          "set-cookie": editCookie(
-            postId,
-            editToken,
-            expiresAt,
-            new URL(request.url).protocol === "https:",
-          ),
-        },
-      },
+      { status: 201 },
     );
   } catch (error) {
     if (error instanceof UploadError) return fail(error.status, error.message);
@@ -516,9 +493,9 @@ export async function handleAddAssets(
   env: Env,
   ctx: ExecutionContext,
   postId: string,
-  accessEmail: string | null,
+  email: string | null,
 ): Promise<Response> {
-  const post = await requireEditablePost(env, request, postId, accessEmail);
+  const post = await requireOwnedPost(env, postId, email);
   if (post instanceof Response) return post;
 
   const maxBytes = limit(env.MAX_UPLOAD_BYTES, 20 * 1024 * 1024);
@@ -573,9 +550,9 @@ export async function handleReorder(
   request: Request,
   env: Env,
   postId: string,
-  accessEmail: string | null,
+  email: string | null,
 ): Promise<Response> {
-  const post = await requireEditablePost(env, request, postId, accessEmail);
+  const post = await requireOwnedPost(env, postId, email);
   if (post instanceof Response) return post;
 
   let body: unknown;
@@ -621,9 +598,9 @@ export async function handleUpdateTitle(
   request: Request,
   env: Env,
   postId: string,
-  accessEmail: string | null,
+  email: string | null,
 ): Promise<Response> {
-  const post = await requireEditablePost(env, request, postId, accessEmail);
+  const post = await requireOwnedPost(env, postId, email);
   if (post instanceof Response) return post;
 
   let body: unknown;
@@ -644,9 +621,9 @@ export async function handleDeleteAsset(
   env: Env,
   postId: string,
   assetId: string,
-  accessEmail: string | null,
+  email: string | null,
 ): Promise<Response> {
-  const post = await requireEditablePost(env, request, postId, accessEmail);
+  const post = await requireOwnedPost(env, postId, email);
   if (post instanceof Response) return post;
 
   const assets = await getPostAssets(env.DB, post.id);

@@ -6,13 +6,14 @@ Everything below is for working on the Worker itself. To deploy it, see
 ## Local setup
 
 ```sh
-cp .dev.vars.example .dev.vars   # AUTH_MODE=basic for local work
 npm run db:migrate:local
 npm run dev
 ```
 
-`ctx.access` is not available outside Cloudflare Access, so local development
-uses Basic auth. `AUTH_MODE=open` skips authentication entirely.
+`ctx.access` does not exist under `wrangler dev`, so there is no identity and
+every upload or edit returns `403` locally. Public pages, image serving, and the
+unit tests still work; writes have to be exercised on a deployed Worker behind
+Access.
 
 Local state (D1 rows, R2 uploads, caches) lives in `.wrangler/`, which is
 gitignored. It can contain real files you uploaded while testing; delete it for a
@@ -36,14 +37,14 @@ npm run db:migrate:remote
 | --- | --- | --- |
 | `GET /` | public | "Nothing to see here" dead end |
 | `GET /upload` | Access | upload page; uploading redirects to the manage page |
-| `POST /api/upload` | Access | multipart: repeated `file`, plus `title` and `ttl`; creates the share and sets the edit cookie |
+| `POST /api/upload` | Access | multipart: repeated `file`, plus `title` and `ttl`; creates the share |
 | `GET /i/:id` | public | share page: title, every image, Open Graph tags, countdown |
-| `GET /m/:id` | cookie | manage page: reorder, delete, rename, add more |
-| `POST /api/posts/:id/assets` | cookie | append images or files (`/images` also accepted) |
-| `DELETE /api/posts/:id/assets/:assetId` | cookie | remove one asset from a share |
-| `PATCH /api/posts/:id/order` | cookie | `{ assetIds: [...] }` — reorder a share |
-| `PATCH /api/posts/:id` | cookie | `{ title }` — rename a share |
-| `DELETE /api/posts/:id` | cookie | delete your own share |
+| `GET /m/:id` | Access + owner | manage page: reorder, delete, rename, add more |
+| `POST /api/posts/:id/assets` | Access + owner | append images or files (`/images` also accepted) |
+| `DELETE /api/posts/:id/assets/:assetId` | Access + owner | remove one asset from a share |
+| `PATCH /api/posts/:id/order` | Access + owner | `{ assetIds: [...] }` — reorder a share |
+| `PATCH /api/posts/:id` | Access + owner | `{ title }` — rename a share |
+| `DELETE /api/posts/:id` | Access + owner | delete your own share |
 | `GET /img/:id/:name` | public | display derivative (WebP, ≤2048 px), `inline`, ETag |
 | `GET /t/:id/:name` | public | small preview for the gallery grid |
 | `GET /raw/:id/:name` | public | alias for the stored image (the same stripped WebP) |
@@ -56,12 +57,18 @@ share's first image, so older direct links keep working.
 
 ## Auth model
 
-Creating a share is the only write that uses Access. Everything after that is
-authorised by an `edit_<shareId>` cookie set on the creating browser (HttpOnly,
-SameSite=Lax, expiring with the share). Only its SHA-256 is stored.
+Cloudflare Access is the only authentication mechanism. Every request that
+changes state goes through these paths, and the Worker checks `ctx.access`
+again as a fail-closed backstop:
 
-This is why `/api/posts/*` and `/m/*` must stay public: an Access wall in front
-of them would redirect to a login that can never present the cookie.
+- `/upload` and `/api/upload` require any Access identity.
+- `/m/*` and `/api/posts/*` require an Access identity whose email matches
+  `posts.owner_email` (compared case-insensitively).
+
+There is no edit cookie, password, or shared secret. A share is editable only by
+the account that uploaded it, and only while it exists. The `edit_hash` and
+`edit_expires_at` columns are leftovers from the cookie era and are no longer
+read or written.
 
 ## Expiry
 
@@ -85,7 +92,6 @@ Variables live in `wrangler.jsonc`:
 
 | Var | Default | Meaning |
 | --- | --- | --- |
-| `AUTH_MODE` | `access` | `access`, `basic`, or `open` |
 | `DEFAULT_TTL_SECONDS` | `86400` | preselected lifetime |
 | `TTL_PRESETS` | 1h, 6h, 24h, 3d, 7d, 14d, 30d, 90d, 365d | JSON `[{label, seconds}]`; requests must match a preset |
 | `MAX_UPLOAD_BYTES` | `20971520` | 20 MB per image (also the Images input limit) |
@@ -95,9 +101,6 @@ Variables live in `wrangler.jsonc`:
 
 TTLs are presets-only by design: the server rejects any `ttl` that is not in the
 list, so storage cost cannot drift.
-
-Secrets are never committed. Use `npx wrangler secret put <NAME>` for
-`UPLOAD_PASSWORD`; local values go in `.dev.vars`.
 
 ## Notes
 

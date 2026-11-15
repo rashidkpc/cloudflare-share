@@ -1,5 +1,4 @@
 import { attachmentHeader, escapeHtml, formatBytes, html, text } from "../lib/http";
-import { verifyEditToken } from "../lib/edit";
 import {
   deletePost,
   getAssetWithPost,
@@ -8,7 +7,7 @@ import {
   getPostAssets,
   type AssetRow,
 } from "../lib/posts";
-import { requireEditablePost } from "./guard";
+import { requireOwnedPost } from "./guard";
 import { uiVersion } from "../ui/assets";
 
 function expiredPage(siteName: string): string {
@@ -132,7 +131,6 @@ export async function handleViewer(
   const first = images[0];
   const ogImage = first ? `${origin}/img/${first.id}/${encodeURIComponent(first.filename)}` : "";
 
-  const editable = await verifyEditToken(request, post);
   const gallery = buildGallery(origin, images);
   const fileList = files.map((file) => fileItem(origin, file)).join("\n");
 
@@ -158,7 +156,7 @@ ${ogImage ? `<meta property="og:image" content="${escapeHtml(ogImage)}">` : ""}
     <div class="post-head">
       <div class="post-head-row">
         <h1 class="post-title">${escapeHtml(title)}</h1>
-        ${editable ? `<a class="edit-link" href="/m/${post.id}">Edit</a>` : ""}
+        <a class="edit-link" href="/m/${post.id}">Edit</a>
       </div>
     </div>
 ${gallery ? `    <div class="gallery">\n${gallery}\n    </div>` : ""}
@@ -333,36 +331,11 @@ function manageItem(origin: string, asset: AssetRow): string {
 export async function handleManage(
   request: Request,
   env: Env,
-  ctx: ExecutionContext,
   id: string,
+  email: string | null,
 ): Promise<Response> {
-  const post = await getPost(env.DB, id);
-  if (!post) return html(missingPage(env.SITE_NAME), 404);
-
-  if (post.expires_at <= Date.now()) {
-    ctx.waitUntil(deletePost(env, post.id).catch(() => undefined));
-    return html(expiredPage(env.SITE_NAME), 410);
-  }
-
-  if (!(await verifyEditToken(request, post))) {
-    return html(`<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow">
-<title>No edit access — ${escapeHtml(env.SITE_NAME)}</title>
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/style.css?v=${uiVersion}">
-</head>
-<body>
-<main class="wrap">
-  <h1 class="gone-title">No edit access</h1>
-  <p class="muted">This browser doesn't hold the edit cookie for that share. Open the manage page from the browser that uploaded it.</p>
-</main>
-</body>
-</html>`, 403);
-  }
+  const post = await requireOwnedPost(env, id, email);
+  if (post instanceof Response) return post;
 
   const assets = await getPostAssets(env.DB, post.id);
   const images = assets.filter((asset) => asset.kind === "image").length;
@@ -440,11 +413,10 @@ ${items}
 
 export async function handleDelete(
   env: Env,
-  request: Request,
   id: string,
-  accessEmail: string | null,
+  email: string | null,
 ): Promise<Response> {
-  const post = await requireEditablePost(env, request, id, accessEmail);
+  const post = await requireOwnedPost(env, id, email);
   if (post instanceof Response) return post;
 
   await deletePost(env, post.id);
