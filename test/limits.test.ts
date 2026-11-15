@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isLimitedRead, shareRequestCap } from "../src/lib/limits";
+import { isLimitedRead } from "../src/lib/limits";
 
 describe("isLimitedRead", () => {
   it("matches the public share and asset routes", () => {
@@ -22,25 +22,5 @@ describe("isLimitedRead", () => {
   it("requires an id after the prefix", () => {
     expect(isLimitedRead("/i/")).toBe(false);
     expect(isLimitedRead("/img/")).toBe(false);
-  });
-});
-
-describe("shareRequestCap", () => {
-  it("defaults to 1000", () => {
-    expect(shareRequestCap(undefined)).toBe(1000);
-  });
-
-  it("uses a positive override", () => {
-    expect(shareRequestCap("250")).toBe(250);
-  });
-
-  it("falls back for invalid or non-positive values", () => {
-    expect(shareRequestCap("0")).toBe(1000);
-    expect(shareRequestCap("-10")).toBe(1000);
-    expect(shareRequestCap("nope")).toBe(1000);
-  });
-
-  it("floors fractional values", () => {
-    expect(shareRequestCap("12.9")).toBe(12);
   });
 });

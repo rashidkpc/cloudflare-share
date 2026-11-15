@@ -37,13 +37,14 @@ npm run db:migrate:remote
 | --- | --- | --- |
 | `GET /` | public | "Nothing to see here" dead end |
 | `GET /upload` | Access | upload page; uploading redirects to the manage page |
-| `POST /api/upload` | Access | multipart: repeated `file`, plus `title` and `ttl`; creates the share |
+| `POST /api/upload` | Access | multipart: repeated `file`, plus `title`, `ttl`, and `requests`; creates the share |
 | `GET /i/:id` | public | share page: title, every image, Open Graph tags, countdown |
-| `GET /m/:id` | Access + owner | manage page: reorder, delete, rename, add more |
+| `GET /m/:id` | Access + owner | manage page: usage, reset, reorder, delete, rename, add more |
 | `POST /api/posts/:id/assets` | Access + owner | append images or files (`/images` also accepted) |
 | `DELETE /api/posts/:id/assets/:assetId` | Access + owner | remove one asset from a share |
 | `PATCH /api/posts/:id/order` | Access + owner | `{ assetIds: [...] }` — reorder a share |
 | `PATCH /api/posts/:id` | Access + owner | `{ title }` — rename a share |
+| `POST /api/posts/:id/reset` | Access + owner | `{ ttl }` — reset the countdown and request counter |
 | `DELETE /api/posts/:id` | Access + owner | delete your own share |
 | `GET /img/:id/:name` | public | display derivative (WebP, ≤2048 px), `inline`, ETag |
 | `GET /t/:id/:name` | public | small preview for the gallery grid |
@@ -73,13 +74,20 @@ read or written.
 ## Request budget and rate limits
 
 Every public `GET`/`HEAD` to `/i/*`, `/img/*`, `/t/*`, `/raw/*`, and `/f/*`
-charges one request to the share (`posts.hits`). Once a share passes
-`MAX_SHARE_REQUESTS` (1,000 by default), its `expires_at` is set to now in the
-same atomic `UPDATE`, so the normal expiry path returns `410` and purges it.
+charges one request to the share (`posts.hits`). The budget is chosen at upload
+time from `SHARE_REQUEST_PRESETS` and stored in `posts.hit_limit`, falling back
+to `DEFAULT_SHARE_REQUESTS`. Once `hits` passes `hit_limit`, `expires_at` is set
+to now in the same atomic `UPDATE`, so the normal expiry path returns `410` and
+purges it.
 
 This is a lifetime budget, not a rate: distributed traffic cannot avoid it, and
-one share can never cause more than `MAX_SHARE_REQUESTS` R2 reads or D1 writes.
+one share can never cause more than `hit_limit` R2 reads or D1 writes.
 Concurrent requests at the boundary are serialized by D1, so the cap holds.
+
+The manage page shows `<hits> of <limit> requests used` and resets both the
+countdown and the counter through `POST /api/posts/:id/reset` with `{ ttl }`.
+A reset cannot revive a share that has already expired; the share has to still
+exist.
 
 Burst control is separate, via two rate limiting bindings in `wrangler.jsonc`:
 
@@ -115,7 +123,8 @@ Variables live in `wrangler.jsonc`:
 | Var | Default | Meaning |
 | --- | --- | --- |
 | `DEFAULT_TTL_SECONDS` | `86400` | preselected lifetime |
-| `MAX_SHARE_REQUESTS` | `1000` | public requests a share may serve before it expires |
+| `SHARE_REQUEST_PRESETS` | 50–10,000 in eight steps | JSON `[{label, requests}]`; uploads must pick one |
+| `DEFAULT_SHARE_REQUESTS` | `1000` | preselected request budget |
 | `TTL_PRESETS` | 1h, 6h, 24h, 3d, 7d, 14d, 30d, 90d, 365d | JSON `[{label, seconds}]`; requests must match a preset |
 | `MAX_UPLOAD_BYTES` | `20971520` | 20 MB per image (also the Images input limit) |
 | `MAX_IMAGES` | `20` | maximum assets (images + files) per share; `MAX_ASSETS` also works |

@@ -3,10 +3,12 @@ import { escapeHtml, html, text } from "./lib/http";
 import { isLimitedRead } from "./lib/limits";
 import { sweepExpired } from "./lib/posts";
 import { loadPresets, resolveTtl } from "./lib/ttl";
+import { loadRequestPresets, resolveRequestLimit } from "./lib/requests";
 import {
   handleAddAssets,
   handleDeleteAsset,
   handleReorder,
+  handleResetShare,
   handleUpdateTitle,
   handleUpload,
 } from "./routes/upload";
@@ -45,9 +47,18 @@ function renderUploadPage(env: Env): Response {
   const resolved = resolveTtl(presets, null, fallbackDefault);
   const defaultTtlSeconds = resolved.ok ? resolved.ttl.seconds : presets[0]!.seconds;
 
+  const requestPresets = loadRequestPresets(env.SHARE_REQUEST_PRESETS);
+  const requestDefault = resolveRequestLimit(
+    requestPresets,
+    null,
+    Number(env.DEFAULT_SHARE_REQUESTS) || 1000,
+  );
+
   const config = {
     presets,
     defaultTtlSeconds,
+    requestPresets,
+    defaultRequestLimit: requestDefault.ok ? requestDefault.preset.requests : 1000,
     maxUploadBytes: Number(env.MAX_UPLOAD_BYTES) || 20 * 1024 * 1024,
     maxAssets: Number(env.MAX_ASSETS ?? env.MAX_IMAGES) || 20,
     maxTotalBytes: Number(env.MAX_TOTAL_BYTES) || 50 * 1024 * 1024,
@@ -222,6 +233,13 @@ export default {
             return handleUpdateTitle(request, env, postId, email);
           }
           return text("Method not allowed", 405, { allow: "DELETE, PATCH" });
+        }
+
+        if (action === "reset") {
+          if (method !== "POST") {
+            return text("Method not allowed", 405, { allow: "POST" });
+          }
+          return handleResetShare(request, env, postId, email);
         }
 
         if (action === "images" || action === "assets") {

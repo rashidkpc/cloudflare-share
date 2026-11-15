@@ -8,6 +8,8 @@ const copyBtn = document.getElementById("copy-link");
 const addBtn = document.getElementById("add");
 const addInput = document.getElementById("add-input");
 const deleteShareBtn = document.getElementById("delete-share");
+const resetBtn = document.getElementById("reset");
+const resetTtlEl = document.getElementById("reset-ttl");
 const progressEl = document.getElementById("progress");
 const progressFill = document.getElementById("progress-fill");
 const progressLabel = document.getElementById("progress-label");
@@ -238,6 +240,28 @@ addInput.addEventListener("change", async () => {
   hideProgress();
 
   if (!failed) location.reload();
+});
+
+resetBtn.addEventListener("click", async () => {
+  if (!confirm("Reset the countdown and the request counter for this share?")) return;
+
+  resetBtn.disabled = true;
+  try {
+    const response = await fetch("/api/posts/" + shareId + "/reset", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ttl: Number(resetTtlEl.value) }),
+    });
+    if (response.ok) {
+      location.reload();
+      return;
+    }
+    const payload = await response.json().catch(() => null);
+    notice((payload && payload.error) || "Could not reset the share.");
+  } catch {
+    notice("Could not reset the share.");
+  }
+  resetBtn.disabled = false;
 });
 
 deleteShareBtn.addEventListener("click", async () => {

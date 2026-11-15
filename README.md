@@ -17,7 +17,7 @@ Temporary image and file hosting on a single Cloudflare Worker.
 - Reads are public, writes are private.
 - No gallery, no index: the 10-character id is the capability.
 - Images become stripped WebP; other files are served as attachments.
-- Shares expire on their own, 24 hours by default, or after 1,000 requests.
+- Shares expire after the TTL you pick, or when their request budget runs out.
 
 ## Install on Cloudflare
 

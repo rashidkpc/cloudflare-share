@@ -3,6 +3,7 @@ const config = JSON.parse(document.body.dataset.config);
 const dropEl = document.getElementById("drop");
 const fileEl = document.getElementById("file");
 const presetsEl = document.getElementById("presets");
+const requestPresetsEl = document.getElementById("request-presets");
 const titleEl = document.getElementById("title");
 const progressEl = document.getElementById("progress");
 const progressFill = document.getElementById("progress-fill");
@@ -11,6 +12,7 @@ const noticeEl = document.getElementById("notice");
 const maxEl = document.getElementById("max-images");
 
 let ttl = config.defaultTtlSeconds;
+let requests = config.defaultRequestLimit;
 let uploading = false;
 
 maxEl.textContent = String(config.maxAssets);
@@ -71,6 +73,25 @@ function buildPresets() {
   }
 }
 
+function buildRequestPresets() {
+  for (const preset of config.requestPresets) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "preset";
+    button.textContent = preset.label;
+    button.dataset.requests = String(preset.requests);
+    button.setAttribute("aria-pressed", String(preset.requests === requests));
+    button.addEventListener("click", () => {
+      if (uploading) return;
+      requests = preset.requests;
+      for (const other of requestPresetsEl.children) {
+        other.setAttribute("aria-pressed", String(other === button));
+      }
+    });
+    requestPresetsEl.append(button);
+  }
+}
+
 async function uploadBatch(files) {
   const totalBytes = files.reduce((sum, file) => sum + file.size, 0) || 1;
 
@@ -90,6 +111,7 @@ async function uploadBatch(files) {
     params.set("filename", file.name);
     if (creating) {
       params.set("ttl", String(ttl));
+      params.set("requests", String(requests));
       const title = titleEl.value.trim();
       if (title) params.set("title", title);
     }
@@ -221,3 +243,4 @@ document.addEventListener("paste", (event) => {
 });
 
 buildPresets();
+buildRequestPresets();

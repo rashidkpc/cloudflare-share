@@ -1,5 +1,4 @@
 import { attachmentHeader, escapeHtml, formatBytes, html, text } from "../lib/http";
-import { shareRequestCap } from "../lib/limits";
 import {
   deletePost,
   getAssetWithPost,
@@ -10,6 +9,7 @@ import {
   type AssetRow,
 } from "../lib/posts";
 import { requireOwnedPost } from "./guard";
+import { loadPresets } from "../lib/ttl";
 import { uiVersion } from "../ui/assets";
 
 function expiredPage(siteName: string): string {
@@ -127,7 +127,7 @@ export async function handleViewer(
   if (!post) return html(missingPage(env.SITE_NAME), 404);
 
   const now = Date.now();
-  const hit = await registerHit(env.DB, post.id, now, shareRequestCap(env.MAX_SHARE_REQUESTS));
+  const hit = await registerHit(env.DB, post.id, now);
   if (!hit || hit.expires_at <= now) {
     ctx.waitUntil(deletePost(env, post.id).catch(() => undefined));
     return html(expiredPage(env.SITE_NAME), 410);
@@ -211,7 +211,7 @@ export async function handleImage(
     return text("Gone — this image has expired", 410);
   }
 
-  const hit = await registerHit(env.DB, postId, now, shareRequestCap(env.MAX_SHARE_REQUESTS));
+  const hit = await registerHit(env.DB, postId, now);
   if (!hit || hit.expires_at <= now) {
     ctx.waitUntil(deletePost(env, postId).catch(() => undefined));
     return text("Gone — this image has expired", 410);
@@ -296,12 +296,7 @@ export async function handleFile(
     return text("Gone — this file has expired", 410);
   }
 
-  const hit = await registerHit(
-    env.DB,
-    found.asset.post_id,
-    now,
-    shareRequestCap(env.MAX_SHARE_REQUESTS),
-  );
+  const hit = await registerHit(env.DB, found.asset.post_id, now);
   if (!hit || hit.expires_at <= now) {
     ctx.waitUntil(deletePost(env, found.asset.post_id).catch(() => undefined));
     return text("Gone — this file has expired", 410);
@@ -383,6 +378,18 @@ export async function handleManage(
     .join(" · ");
   const items = assets.map((asset) => manageItem(origin, asset)).join("\n");
 
+  const ttlPresets = loadPresets(env.TTL_PRESETS);
+  const selectedTtl = ttlPresets.some((preset) => preset.seconds === post.ttl_seconds)
+    ? post.ttl_seconds
+    : ttlPresets[0]!.seconds;
+  const ttlOptions = ttlPresets
+    .map(
+      (preset) =>
+        `<option value="${preset.seconds}"${preset.seconds === selectedTtl ? " selected" : ""}>${escapeHtml(preset.label)}</option>`,
+    )
+    .join("");
+  const requestsUsed = `${post.hits.toLocaleString("en-US")} of ${post.hit_limit.toLocaleString("en-US")} requests used`;
+
   return html(`<!doctype html>
 <html lang="en">
 <head>
@@ -398,7 +405,7 @@ export async function handleManage(
 <main class="wrap manage">
   <div class="top">
     <h1>Manage share</h1>
-    <p class="muted small">${summary} · expires in
+    <p class="muted small">${summary} · ${escapeHtml(requestsUsed)} · expires in
       <span data-expires-at="${post.expires_at}" data-expires-iso="${escapeHtml(expiresIso)}">—</span>
       · <a href="/i/${post.id}">view</a></p>
   </div>
@@ -416,6 +423,13 @@ export async function handleManage(
       <div class="inline-field">
         <input id="post-url" class="text-input link-input" readonly value="${escapeHtml(shareUrl)}">
         <button id="copy-link" class="secondary" type="button">Copy</button>
+      </div>
+    </label>
+    <label class="field">
+      <span class="field-label">Reset countdown &amp; request counter</span>
+      <div class="inline-field">
+        <select id="reset-ttl" class="text-input">${ttlOptions}</select>
+        <button id="reset" class="secondary" type="button">Reset</button>
       </div>
     </label>
   </div>

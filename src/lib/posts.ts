@@ -5,6 +5,8 @@ export interface PostRow {
   created_at: number;
   expires_at: number;
   ttl_seconds: number;
+  hits: number;
+  hit_limit: number;
 }
 
 export type AssetKind = "image" | "file";
@@ -31,7 +33,8 @@ export interface AssetRow {
 export type Db = Pick<D1Database, "prepare" | "batch">;
 export type Storage = { DB: Db; BLOBS: Pick<R2Bucket, "delete"> };
 
-const POST_COLUMNS = "id, owner_email, title, created_at, expires_at, ttl_seconds";
+const POST_COLUMNS =
+  "id, owner_email, title, created_at, expires_at, ttl_seconds, hits, hit_limit";
 const ASSET_COLUMNS =
   "id, post_id, position, kind, mime, size, width, height, filename, r2_key, display_key, display_size, display_mime, thumb_key, thumb_size, thumb_mime";
 
@@ -68,6 +71,7 @@ export async function getPost(db: Db, id: string): Promise<PostRow | null> {
 export interface HitState {
   hits: number;
   expires_at: number;
+  hit_limit: number;
 }
 
 /**
@@ -77,21 +81,16 @@ export interface HitState {
  * The budget is spent by expiring the share in place, so the normal purge path
  * (serve-time delete plus the cron sweep) does the cleanup.
  */
-export async function registerHit(
-  db: Db,
-  postId: string,
-  now: number,
-  cap: number,
-): Promise<HitState | null> {
+export async function registerHit(db: Db, postId: string, now: number): Promise<HitState | null> {
   const row = await db
     .prepare(
       `UPDATE posts
           SET hits = hits + 1,
-              expires_at = CASE WHEN hits + 1 > ?2 THEN ?3 ELSE expires_at END
-        WHERE id = ?1 AND expires_at > ?3
-    RETURNING hits, expires_at`,
+              expires_at = CASE WHEN hits + 1 > hit_limit THEN ?2 ELSE expires_at END
+        WHERE id = ?1 AND expires_at > ?2
+    RETURNING hits, expires_at, hit_limit`,
     )
-    .bind(postId, cap, now)
+    .bind(postId, now)
     .first<HitState>();
   return row ?? null;
 }

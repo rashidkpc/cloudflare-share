@@ -2,6 +2,7 @@ import { fail, json } from "../lib/http";
 import { randomId } from "../lib/ids";
 import { imageDimensions, sanitizeFilename, sniffImage } from "../lib/images";
 import { loadPresets, resolveTtl } from "../lib/ttl";
+import { loadRequestPresets, resolveRequestLimit } from "../lib/requests";
 import { getPostAssets, type AssetRow } from "../lib/posts";
 import { requireOwnedPost } from "./guard";
 
@@ -206,6 +207,7 @@ interface Incoming {
   files: IncomingFile[];
   titleRaw: unknown;
   ttlRaw: string | null;
+  requestsRaw: string | null;
 }
 
 async function collectFiles(request: Request, allowRawBody: boolean): Promise<Incoming> {
@@ -226,6 +228,7 @@ async function collectFiles(request: Request, allowRawBody: boolean): Promise<In
         files,
         titleRaw: form.get("title"),
         ttlRaw: form.get("ttl")?.toString() ?? null,
+        requestsRaw: form.get("requests")?.toString() ?? null,
       };
     }
 
@@ -246,6 +249,7 @@ async function collectFiles(request: Request, allowRawBody: boolean): Promise<In
       ],
       titleRaw: url.searchParams.get("title"),
       ttlRaw: url.searchParams.get("ttl"),
+      requestsRaw: url.searchParams.get("requests"),
     };
   } catch (error) {
     if (error instanceof UploadError) throw error;
@@ -427,13 +431,26 @@ export async function handleUpload(
   }
 
   try {
-    const { files, titleRaw, ttlRaw } = await collectFiles(request, true);
+    const { files, titleRaw, ttlRaw, requestsRaw } = await collectFiles(request, true);
     validateFiles(files, maxBytes, maxTotal, maxCount);
 
     const presets = loadPresets(env.TTL_PRESETS);
     const choice = resolveTtl(presets, ttlRaw, Number(env.DEFAULT_TTL_SECONDS) || 86400);
     if (!choice.ok) {
       return fail(400, `Unsupported ttl. Allowed values (seconds): ${choice.allowed.join(", ")}`);
+    }
+
+    const requestPresets = loadRequestPresets(env.SHARE_REQUEST_PRESETS);
+    const requestChoice = resolveRequestLimit(
+      requestPresets,
+      requestsRaw,
+      Number(env.DEFAULT_SHARE_REQUESTS) || 1000,
+    );
+    if (!requestChoice.ok) {
+      return fail(
+        400,
+        `Unsupported request limit. Allowed values: ${requestChoice.allowed.join(", ")}`,
+      );
     }
 
     const prepared = await prepareFiles(env, files);
@@ -450,9 +467,9 @@ export async function handleUpload(
     const statements: D1PreparedStatement[] = [
       env.DB.prepare(
         `INSERT INTO posts
-           (id, owner_email, title, created_at, expires_at, ttl_seconds)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
-      ).bind(postId, email, title, now, expiresAt, choice.ttl.seconds),
+           (id, owner_email, title, created_at, expires_at, ttl_seconds, hit_limit)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
+      ).bind(postId, email, title, now, expiresAt, choice.ttl.seconds, requestChoice.preset.requests),
       ...assetStatements(env, postId, records),
     ];
 
@@ -475,6 +492,7 @@ export async function handleUpload(
         deleteUrl: `${origin}/api/posts/${postId}`,
         title,
         ttlSeconds: choice.ttl.seconds,
+        hitLimit: requestChoice.preset.requests,
         expiresAt: new Date(expiresAt).toISOString(),
         count: records.length,
         assets: records.map((record) => assetJson(origin, record)),
@@ -614,6 +632,51 @@ export async function handleUpdateTitle(
   await env.DB.prepare("UPDATE posts SET title = ?1 WHERE id = ?2").bind(title, post.id).run();
 
   return json({ id: post.id, title });
+}
+
+export async function handleResetShare(
+  request: Request,
+  env: Env,
+  postId: string,
+  email: string | null,
+): Promise<Response> {
+  const post = await requireOwnedPost(env, postId, email);
+  if (post instanceof Response) return post;
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return fail(400, "Expected a JSON body");
+  }
+
+  const rawTtl = (body as { ttl?: unknown })?.ttl;
+  const presets = loadPresets(env.TTL_PRESETS);
+  const choice = resolveTtl(
+    presets,
+    rawTtl == null ? null : String(rawTtl),
+    Number(env.DEFAULT_TTL_SECONDS) || 86400,
+  );
+  if (!choice.ok) {
+    return fail(400, `Unsupported ttl. Allowed values (seconds): ${choice.allowed.join(", ")}`);
+  }
+
+  const now = Date.now();
+  const expiresAt = now + choice.ttl.seconds * 1000;
+
+  await env.DB.prepare(
+    "UPDATE posts SET hits = 0, ttl_seconds = ?1, expires_at = ?2 WHERE id = ?3",
+  )
+    .bind(choice.ttl.seconds, expiresAt, post.id)
+    .run();
+
+  return json({
+    id: post.id,
+    hits: 0,
+    hitLimit: post.hit_limit,
+    ttlSeconds: choice.ttl.seconds,
+    expiresAt: new Date(expiresAt).toISOString(),
+  });
 }
 
 export async function handleDeleteAsset(
