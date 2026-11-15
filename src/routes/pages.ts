@@ -58,15 +58,20 @@ function extensionLabel(filename: string): string {
   return filename.slice(dot + 1).slice(0, 5).toUpperCase();
 }
 
-function galleryItem(origin: string, image: AssetRow): string {
+function galleryItem(
+  origin: string,
+  image: AssetRow,
+  preview: "thumb" | "display" = "thumb",
+): string {
   const name = encodeURIComponent(image.filename);
   const full = `${origin}/img/${image.id}/${name}`;
   const thumb = `${origin}/t/${image.id}/${name}`;
+  const src = preview === "display" ? full : thumb;
   const alt = escapeHtml(image.filename);
   const size =
     image.width && image.height ? ` width="${image.width}" height="${image.height}"` : "";
   return `    <a class="thumb" href="${escapeHtml(full)}" data-full="${escapeHtml(full)}" data-name="${alt}">
-      <img src="${escapeHtml(thumb)}" alt="${alt}"${size} loading="lazy" decoding="async">
+      <img src="${escapeHtml(src)}" alt="${alt}"${size} loading="lazy" decoding="async">
     </a>`;
 }
 
@@ -83,6 +88,9 @@ function fileItem(origin: string, file: AssetRow): string {
 function buildGallery(origin: string, images: AssetRow[]): string {
   if (images.length === 0) return "";
 
+  // A lone image fills the whole column, so the 640 px thumbnail would be
+  // stretched and look soft. Use the display derivative instead.
+  const preview: "thumb" | "display" = images.length === 1 ? "display" : "thumb";
   const count = images.length <= 1 ? 1 : images.length <= 4 ? 2 : 3;
   const columns: AssetRow[][] = Array.from({ length: count }, () => []);
   const heights = new Array<number>(count).fill(0);
@@ -103,7 +111,7 @@ function buildGallery(origin: string, images: AssetRow[]): string {
     .map(
       (column) =>
         `    <div class="gallery-col">\n${column
-          .map((image) => galleryItem(origin, image))
+          .map((image) => galleryItem(origin, image, preview))
           .join("\n")}\n    </div>`,
     )
     .join("\n");
