@@ -2,18 +2,13 @@
 
 Source: <https://github.com/rashidkpc/cloudflare-share>
 
-> **Full disclosure: this whole thing was vibed into existence.** An AI agent
-> wrote it, nobody audited every line, and no, that definitely won't come back to
-> bite anyone. It works. Think of it as a pretty dumb friend's side project — and
-> honestly, you're probably just as dumb for deploying it. No offense. It takes
-> one to know one.
+> **This project was vibe-coded.** An AI agent wrote it and nobody audited it.
+> Review the code before trusting it with anything.
 >
-> **The genuinely best way to deploy it is to make an agent do it.** Hand this
-> repo to a coding agent and tell it to follow the install steps. It will happily
-> create the D1 database and R2 bucket, paste in the ids, run the migrations,
-> deploy, and wire up Access — fixing its own mistakes along the way — while you
-> take the credit. And don't bother clearing this with your compliance
-> department. You don't have one. Why would you?
+> **The easiest way to deploy it is with an agent.** Give a coding agent the repo
+> and tell it to follow the install steps: create the D1 database and R2 bucket,
+> fill in the ids, run the migrations, deploy, and configure Access. The manual
+> steps below work too.
 
 Temporary image and file hosting on a single Cloudflare Worker.
 
