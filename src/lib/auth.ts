@@ -20,3 +20,14 @@ export async function accessIdentity(ctx: ExecutionContext): Promise<string | nu
     return null;
   }
 }
+
+/**
+ * True when the request carries an Access session cookie. This is only a hint:
+ * /upload validates the session for real, so a stale cookie just means one
+ * extra trip through the Access login.
+ */
+export function hasAccessSession(request: Request): boolean {
+  const header = request.headers.get("cookie");
+  if (!header) return false;
+  return /(?:^|;\s*)CF_Authorization=/.test(header);
+}

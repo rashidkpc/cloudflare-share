@@ -1,4 +1,4 @@
-import { accessIdentity } from "./lib/auth";
+import { accessIdentity, hasAccessSession } from "./lib/auth";
 import { escapeHtml, html, text } from "./lib/http";
 import { isLimitedRead } from "./lib/limits";
 import { sweepExpired } from "./lib/posts";
@@ -190,10 +190,16 @@ export default {
         }
       }
 
-      // The root is a dead end. The uploader lives at /upload.
+      // The root is a dead end unless an Access session already exists.
       if (pathname === "/") {
         if (method !== "GET" && method !== "HEAD") {
           return text("Method not allowed", 405, { allow: "GET, HEAD" });
+        }
+        if (hasAccessSession(request)) {
+          return new Response(null, {
+            status: 302,
+            headers: { location: "/upload", "cache-control": "no-store" },
+          });
         }
         return renderNothingPage();
       }

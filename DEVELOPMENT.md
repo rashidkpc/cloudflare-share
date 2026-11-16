@@ -35,7 +35,7 @@ npm run db:migrate:remote
 
 | Route | Auth | Purpose |
 | --- | --- | --- |
-| `GET /` | public | "Nothing to see here" dead end |
+| `GET /` | public | dead end, or a redirect to `/upload` when an Access session exists |
 | `GET /upload` | Access | upload page; uploading redirects to the manage page |
 | `POST /api/upload` | Access | multipart: repeated `file`, plus `title`, `ttl`, and `requests`; creates the share |
 | `GET /i/:id` | public | share page: title, every image, Open Graph tags, countdown |
