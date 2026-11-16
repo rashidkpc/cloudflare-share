@@ -170,7 +170,7 @@ ${ogImage ? `<meta property="og:image" content="${escapeHtml(ogImage)}">` : ""}
         <a class="edit-link" href="/m/${post.id}">Edit</a>
       </div>
     </div>
-${gallery ? `    <div class="gallery">\n${gallery}\n    </div>` : ""}
+${gallery ? `    <div class="${images.length === 1 ? "gallery gallery-single" : "gallery"}">\n${gallery}\n    </div>` : ""}
   </section>
 ${files.length > 0 ? `  <ul class="file-list">\n${fileList}\n  </ul>` : ""}
 </main>

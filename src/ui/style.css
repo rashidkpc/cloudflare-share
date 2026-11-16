@@ -600,6 +600,23 @@ h1 {
   height: auto;
 }
 
+ /* A lone image should fit the viewport instead of running past the fold. */
+.gallery-single .thumb {
+  display: flex;
+  justify-content: center;
+  background: none;
+  border: 0;
+}
+
+.gallery-single .thumb img {
+  width: auto;
+  max-width: 100%;
+  max-height: calc(100vh - 13rem);
+  max-height: calc(100dvh - 13rem);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
 .thumb:hover {
   border-color: #3a4256;
 }
