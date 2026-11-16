@@ -2,8 +2,8 @@ const config = JSON.parse(document.body.dataset.config);
 
 const dropEl = document.getElementById("drop");
 const fileEl = document.getElementById("file");
-const presetsEl = document.getElementById("presets");
-const requestPresetsEl = document.getElementById("request-presets");
+const ttlSelect = document.getElementById("ttl");
+const requestSelect = document.getElementById("request-limit");
 const titleEl = document.getElementById("title");
 const progressEl = document.getElementById("progress");
 const progressFill = document.getElementById("progress-fill");
@@ -54,42 +54,30 @@ function postBody(url, file, onProgress) {
   });
 }
 
-function buildPresets() {
+function buildTtlSelect() {
   for (const preset of config.presets) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "preset";
-    button.textContent = preset.label;
-    button.dataset.seconds = String(preset.seconds);
-    button.setAttribute("aria-pressed", String(preset.seconds === ttl));
-    button.addEventListener("click", () => {
-      if (uploading) return;
-      ttl = preset.seconds;
-      for (const other of presetsEl.children) {
-        other.setAttribute("aria-pressed", String(other === button));
-      }
-    });
-    presetsEl.append(button);
+    const option = document.createElement("option");
+    option.value = String(preset.seconds);
+    option.textContent = preset.label;
+    ttlSelect.append(option);
   }
+  ttlSelect.value = String(ttl);
+  ttlSelect.addEventListener("change", () => {
+    ttl = Number(ttlSelect.value);
+  });
 }
 
-function buildRequestPresets() {
+function buildRequestSelect() {
   for (const preset of config.requestPresets) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "preset";
-    button.textContent = preset.label;
-    button.dataset.requests = String(preset.requests);
-    button.setAttribute("aria-pressed", String(preset.requests === requests));
-    button.addEventListener("click", () => {
-      if (uploading) return;
-      requests = preset.requests;
-      for (const other of requestPresetsEl.children) {
-        other.setAttribute("aria-pressed", String(other === button));
-      }
-    });
-    requestPresetsEl.append(button);
+    const option = document.createElement("option");
+    option.value = String(preset.requests);
+    option.textContent = preset.label;
+    requestSelect.append(option);
   }
+  requestSelect.value = String(requests);
+  requestSelect.addEventListener("change", () => {
+    requests = Number(requestSelect.value);
+  });
 }
 
 async function uploadBatch(files) {
@@ -242,5 +230,5 @@ document.addEventListener("paste", (event) => {
   }
 });
 
-buildPresets();
-buildRequestPresets();
+buildTtlSelect();
+buildRequestSelect();
